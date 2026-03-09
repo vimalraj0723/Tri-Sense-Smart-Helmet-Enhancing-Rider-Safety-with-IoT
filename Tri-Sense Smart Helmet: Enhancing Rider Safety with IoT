@@ -1,3 +1,76 @@
+#include <RH_ASK.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#define RELAY_PIN   8
+#define BUZZER_PIN  9
+
+RH_ASK rf_driver;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Store last valid data
+int helmet = 0;
+int alcohol = 0;
+
+void setup() {
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  digitalWrite(RELAY_PIN, HIGH);   // Relay OFF
+  digitalWrite(BUZZER_PIN, LOW);   // Buzzer OFF
+
+  rf_driver.init();
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0,0);
+  lcd.print("Smart Helmet");
+  lcd.setCursor(0,1);
+  lcd.print("System Ready");
+}
+
+void loop() {
+  uint8_t buf[20];
+  uint8_t buflen = sizeof(buf);
+
+  // Receive RF data
+  if (rf_driver.recv(buf, &buflen)) {
+    buf[buflen] = '\0';
+    String data = String((char*)buf);
+
+    int comma = data.indexOf(',');
+    if (comma > 0) {
+      helmet  = data.substring(0, comma).toInt();
+      alcohol = data.substring(comma + 1).toInt();
+    }
+
+    // LCD update
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Helmet:");
+    lcd.print(helmet ? "YES" : "NO");
+
+    lcd.setCursor(0,1);
+    lcd.print("Alcohol:");
+    lcd.print(alcohol ? "YES" : "NO");
+  }
+
+  // 🔴 RELAY CONTROL (CONTINUOUS)
+  if (helmet == 1 && alcohol == 0) {
+    digitalWrite(RELAY_PIN, LOW);   // Engine ON
+  } else {
+    digitalWrite(RELAY_PIN, HIGH);  // Engine OFF
+  }
+
+  // 🔊 BUZZER CONTROL
+  if (alcohol == 1) {
+    digitalWrite(BUZZER_PIN, HIGH); // Buzzer ON
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);  // Buzzer OFF
+  }
+}
+
 /*
   Smart Helmet Reciever code
   Features:
